@@ -1,0 +1,93 @@
+name: macOS-App bauen
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          sw_vers
+          swift --version
+
+      - name: Unit-Tests
+        env:
+          RUN_NETWORK_TESTS: "1"
+        run: swift test
+
+      - name: App bauen (Apple Silicon + Intel) und DMG erstellen
+        run: ./scripts/build-app.sh --universal --dmg
+
+      - name: End-to-End-Test mit echten PDFs
+        run: ./scripts/e2e-test.sh
+
+      - name: App per "Öffnen mit" testen und Screenshot machen
+        continue-on-error: true
+        run: |
+          WORK="$(mktemp -d)"
+          cp Tests/Fixtures/*.pdf "$WORK/"
+          open -a "$PWD/build/Paper Renamer.app" "$WORK"/*.pdf
+          sleep 20
+          echo "Dateien nach dem Öffnen in der App:"
+          ls -1 "$WORK"
+          cat > "$RUNNER_TEMP/winid.swift" <<'EOF'
+          import CoreGraphics
+          let list = (CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]) ?? []
+          for window in list where (window[kCGWindowOwnerName as String] as? String)?.contains("Paper Renamer") == true {
+              if let number = window[kCGWindowNumber as String] as? Int, (window[kCGWindowLayer as String] as? Int) == 0 {
+                  print(number)
+                  break
+              }
+          }
+          EOF
+          WID="$(swift "$RUNNER_TEMP/winid.swift" | head -1)"
+          echo "Fenster-ID: $WID"
+          mkdir -p build/screenshots
+          if [[ -n "$WID" ]]; then
+            screencapture -x -o -l "$WID" build/screenshots/app.png
+          else
+            screencapture -x build/screenshots/app.png
+          fi
+          sips -Z 900 -s format jpeg -s formatOptions 55 build/screenshots/app.png --out build/screenshots/app.jpg >/dev/null
+          ls -la build/screenshots
+          echo "SCREENSHOT_BEGIN"
+          base64 -i build/screenshots/app.jpg | fold -w 120
+          echo "SCREENSHOT_END"
+          osascript -e 'if application "Paper Renamer" is running then tell application "Paper Renamer" to quit' || true
+
+      - name: DMG hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: PaperRenamer-macOS
+          path: build/PaperRenamer.dmg
+          if-no-files-found: error
+
+      - name: Screenshot hochladen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Screenshot
+          path: build/screenshots/
+          if-no-files-found: ignore
+
+      - name: Release veröffentlichen (nur bei Tags v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/PaperRenamer.dmg
