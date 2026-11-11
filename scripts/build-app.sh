@@ -64,6 +64,8 @@ cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
+# Erweiterte Attribute (z. B. Quarantäne aus einem ZIP-Download) entfernen, sonst scheitert codesign.
+xattr -cr "$APP"
 # Ad-hoc-Signatur (nötig auf Apple Silicon; keine Apple-Developer-ID erforderlich).
 codesign --force --sign - --timestamp=none "$APP"
 echo "==> Fertig: $APP"
