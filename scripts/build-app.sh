@@ -5,6 +5,7 @@
 #   ./scripts/build-app.sh --install   # ... und kopiert die App nach /Applications
 #   ./scripts/build-app.sh --universal # Apple Silicon + Intel in einer App
 #   ./scripts/build-app.sh --dmg       # erzeugt zusätzlich build/PaperRenamer.dmg
+#   ./scripts/build-app.sh --pkg       # erzeugt zusätzlich das Installationspaket build/PaperRenamer.pkg
 #
 # Voraussetzung: Xcode oder die Command Line Tools (xcode-select --install).
 set -euo pipefail
@@ -18,11 +19,13 @@ APP="$BUILD_DIR/$APP_NAME.app"
 INSTALL=0
 UNIVERSAL=0
 DMG=0
+PKG=0
 for arg in "$@"; do
   case "$arg" in
     --install) INSTALL=1 ;;
     --universal) UNIVERSAL=1 ;;
     --dmg) DMG=1 ;;
+    --pkg) PKG=1 ;;
     *) echo "Unbekannte Option: $arg" >&2; exit 2 ;;
   esac
 done
@@ -80,6 +83,38 @@ if [[ $DMG -eq 1 ]]; then
   hdiutil create -volname "$APP_NAME" -srcfolder "$STAGING" -ov -format UDZO "$BUILD_DIR/PaperRenamer.dmg" >/dev/null
   rm -rf "$STAGING"
   echo "==> Fertig: $BUILD_DIR/PaperRenamer.dmg"
+fi
+
+if [[ $PKG -eq 1 ]]; then
+  echo "==> Erstelle Installationspaket (PKG) …"
+  PKGROOT="$BUILD_DIR/pkgroot"
+  SCRIPTS="$BUILD_DIR/pkgscripts"
+  rm -rf "$PKGROOT" "$SCRIPTS" "$BUILD_DIR/PaperRenamer.pkg"
+  mkdir -p "$PKGROOT" "$SCRIPTS"
+  ditto "$APP" "$PKGROOT/$APP_NAME.app"
+  # Immer nach /Applications installieren (nicht an einen anderen Ort mit derselben App "umleiten").
+  pkgbuild --analyze --root "$PKGROOT" "$BUILD_DIR/component.plist" >/dev/null
+  plutil -replace 0.BundleIsRelocatable -bool NO "$BUILD_DIR/component.plist"
+  # Nach der Installation die App für den angemeldeten Benutzer starten.
+  cat > "$SCRIPTS/postinstall" <<'EOF'
+#!/bin/bash
+CONSOLE_USER="$(stat -f %Su /dev/console)"
+if [[ -n "$CONSOLE_USER" && "$CONSOLE_USER" != "root" ]]; then
+  launchctl asuser "$(id -u "$CONSOLE_USER")" sudo -u "$CONSOLE_USER" open "/Applications/Paper Renamer.app" || true
+fi
+exit 0
+EOF
+  chmod +x "$SCRIPTS/postinstall"
+  VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$ROOT/Resources/Info.plist")"
+  pkgbuild --root "$PKGROOT" \
+    --component-plist "$BUILD_DIR/component.plist" \
+    --scripts "$SCRIPTS" \
+    --identifier "de.researchpaper.PaperRenamer.pkg" \
+    --version "$VERSION" \
+    --install-location /Applications \
+    "$BUILD_DIR/PaperRenamer.pkg" >/dev/null
+  rm -rf "$PKGROOT" "$SCRIPTS" "$BUILD_DIR/component.plist"
+  echo "==> Fertig: $BUILD_DIR/PaperRenamer.pkg"
 fi
 
 if [[ $INSTALL -eq 1 ]]; then

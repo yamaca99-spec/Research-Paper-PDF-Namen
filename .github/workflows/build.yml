@@ -31,11 +31,21 @@ jobs:
           RUN_NETWORK_TESTS: "1"
         run: swift test
 
-      - name: App bauen (Apple Silicon + Intel) und DMG erstellen
-        run: ./scripts/build-app.sh --universal --dmg
+      - name: App bauen (Apple Silicon + Intel), DMG und Installationspaket erstellen
+        run: ./scripts/build-app.sh --universal --dmg --pkg
 
       - name: End-to-End-Test mit echten PDFs
         run: ./scripts/e2e-test.sh
+
+      - name: Installationspaket testen
+        run: |
+          sudo installer -pkg build/PaperRenamer.pkg -target /
+          test -x "/Applications/Paper Renamer.app/Contents/MacOS/PaperRenamer"
+          codesign --verify --verbose "/Applications/Paper Renamer.app"
+          lipo -archs "/Applications/Paper Renamer.app/Contents/MacOS/PaperRenamer"
+          sleep 5
+          osascript -e 'if application "Paper Renamer" is running then tell application "Paper Renamer" to quit' || true
+          sleep 2
 
       - name: App per "Öffnen mit" testen und Screenshot machen
         continue-on-error: true
@@ -75,7 +85,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: PaperRenamer-macOS
-          path: build/PaperRenamer.dmg
+          path: |
+            build/PaperRenamer.pkg
+            build/PaperRenamer.dmg
           if-no-files-found: error
 
       - name: Screenshot hochladen
@@ -90,4 +102,14 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: build/PaperRenamer.dmg
+          name: Paper Renamer ${{ github.ref_name }}
+          body: |
+            **Installation:** `PaperRenamer.pkg` herunterladen und doppelklicken.
+            Beim ersten Mal meldet macOS, dass die App nicht von Apple überprüft wurde:
+            dann **Systemeinstellungen → Datenschutz & Sicherheit → Dennoch öffnen** klicken.
+            Danach installiert sich die App nach „Programme“ und startet automatisch.
+
+            Alternative: `PaperRenamer.dmg` öffnen und die App auf „Programme“ ziehen.
+          files: |
+            build/PaperRenamer.pkg
+            build/PaperRenamer.dmg

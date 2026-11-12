@@ -14,23 +14,20 @@ PDF ins Fenster (oder aufs Dock-Symbol) ziehen – fertig. Aus `1706.03762v7.pdf
 
 ## Installation
 
-### Variante A: Fertige App herunterladen (ohne Xcode)
+### Variante A: Installationspaket herunterladen (empfohlen)
 
-1. Auf GitHub im Repository auf **Actions** → **macOS-App bauen** gehen und den neuesten erfolgreichen
-   Durchlauf öffnen. Unten bei **Artifacts** die Datei **PaperRenamer-macOS** herunterladen und entpacken.
-   (Falls es unter **Releases** eine Version gibt, kannst du die `PaperRenamer.dmg` auch direkt dort laden.)
-2. `PaperRenamer.dmg` öffnen und **Paper Renamer** auf **Programme** ziehen.
-3. Beim ersten Start meldet macOS, dass die App nicht überprüft werden kann (sie ist nicht bei Apple
-   registriert). So öffnest du sie trotzdem:
-   - App einmal per Doppelklick öffnen → Meldung schließen.
-   - **Systemeinstellungen → Datenschutz & Sicherheit** → ganz unten bei „Paper Renamer“ auf
-     **Dennoch öffnen** klicken.
+**Download: [PaperRenamer.pkg](https://github.com/yamaca99-spec/Research-Paper-PDF-Namen/releases/latest/download/PaperRenamer.pkg)**
 
-   Alternativ im Terminal:
+1. `PaperRenamer.pkg` herunterladen und doppelklicken.
+2. Beim ersten Mal meldet macOS, dass das Paket nicht von Apple überprüft wurde (die App ist nicht
+   bei Apple registriert). Dann: **Systemeinstellungen → Datenschutz & Sicherheit** → ganz unten bei
+   „PaperRenamer.pkg“ auf **Dennoch öffnen** klicken und mit dem Mac-Passwort bestätigen.
+3. Im Installationsprogramm auf **Fortfahren → Installieren** klicken. Die App landet in **Programme**
+   und startet danach automatisch.
 
-   ```bash
-   xattr -dr com.apple.quarantine "/Applications/Paper Renamer.app"
-   ```
+Alternativ gibt es eine [PaperRenamer.dmg](https://github.com/yamaca99-spec/Research-Paper-PDF-Namen/releases/latest/download/PaperRenamer.dmg):
+öffnen und **Paper Renamer** auf **Programme** ziehen. Beim ersten Start der App ist dann derselbe
+Schritt über „Datenschutz & Sicherheit → Dennoch öffnen“ nötig.
 
 ### Variante B: Selbst bauen
 
