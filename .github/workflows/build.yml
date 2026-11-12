@@ -98,11 +98,24 @@ jobs:
           path: build/screenshots/
           if-no-files-found: ignore
 
-      - name: Release veröffentlichen (nur bei Tags v*)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Versionsnummer bestimmen
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=v$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Resources/Info.plist)" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Release bei Tags v* und bei jedem Push auf den Standard-Branch (Version aus Info.plist).
+      - name: Release veröffentlichen
+        if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/v') || github.ref_name == github.event.repository.default_branch)
         uses: softprops/action-gh-release@v2
         with:
-          name: Paper Renamer ${{ github.ref_name }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          name: Paper Renamer ${{ steps.version.outputs.tag }}
           body: |
             **Installation:** `PaperRenamer.pkg` herunterladen und doppelklicken.
             Beim ersten Mal meldet macOS, dass die App nicht von Apple überprüft wurde:
